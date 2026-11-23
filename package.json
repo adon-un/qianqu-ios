@@ -4,7 +4,8 @@
   "private": true,
   "dependencies": {
     "@capacitor/core": "^7.0.0",
-    "@capacitor/ios": "^7.0.0"
+    "@capacitor/ios": "^7.0.0",
+    "subject-cutout": "file:./plugins/subject-cutout"
   },
   "devDependencies": {
     "@capacitor/cli": "^7.0.0"

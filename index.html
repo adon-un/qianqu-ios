@@ -1943,23 +1943,72 @@ html.noanim *{animation:none!important;transition:none!important}
     im.src = url;
   }
 
+  // iOS 原生抠图：走 Vision 的主体识别，比按颜色猜准得多
+  function nativeCutPlugin() {
+    var cap = window.Capacitor;
+    if (!cap || !cap.Plugins || !cap.Plugins.SubjectCutout) return null;
+    return cap.Plugins.SubjectCutout;
+  }
+
+  function loadImage(src) {
+    return new Promise(function (resolve, reject) {
+      var im = new Image();
+      im.onload = function () { resolve(im); };
+      im.onerror = reject;
+      im.src = src;
+    });
+  }
+
   // 抠图 + 贴纸化（描边 + 投影）
   function doCut() {
     var src = form._orig || form._canvas;
     if (!src) { toast('先拍一张或选一张'); return; }
+
     var c = document.createElement('canvas');
     c.width = src.width;
     c.height = src.height;
     var ctx = c.getContext('2d');
     ctx.drawImage(src, 0, 0);
-    cutBackground(ctx, c.width, c.height, 44);
-    var st = sticker(c);
-    form._cut = c;
-    form._canvas = st;
-    form.img = st.toDataURL('image/png');
-    form.cut = true;
-    updatePhotoUI();
-    toast('已抠好，加了白边和投影');
+
+    function finish(native) {
+      var st = sticker(c);
+      form._cut = c;
+      form._canvas = st;
+      form.img = st.toDataURL('image/png');
+      form.cut = true;
+      updatePhotoUI();
+      toast(native ? '已抠好（系统识别）' : '已抠好，加了白边和投影');
+    }
+
+    function localCut() {
+      cutBackground(ctx, c.width, c.height, 44);
+      finish(false);
+    }
+
+    var plugin = nativeCutPlugin();
+    if (!plugin) { localCut(); return; }
+
+    toast('正在识别主体…');
+    var b64;
+    try {
+      b64 = c.toDataURL('image/png').split(',')[1];
+    } catch (e) { localCut(); return; }
+
+    plugin.cutout({ image: b64 }).then(function (res) {
+      var url = res && res.image ? res.image : null;
+      if (!url) { localCut(); return; }
+      return loadImage(url).then(function (im) {
+        ctx.clearRect(0, 0, c.width, c.height);
+        ctx.drawImage(im, 0, 0, c.width, c.height);
+        finish(true);
+      });
+    }).catch(function (err) {
+      // 主体识别不出来 / 系统版本太低 → 退回本地算法
+      if (err && typeof err.message === 'string' && err.message.indexOf('NO_SUBJECT') >= 0) {
+        toast('没找到明显主体，用本地算法');
+      }
+      localCut();
+    });
   }
 
   function useOriginal() {
