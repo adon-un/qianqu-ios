@@ -1,0 +1,16 @@
+{
+  "name": "钱都去哪儿了",
+  "short_name": "钱去哪",
+  "description": "我的钱花在哪，东西买了多久、每天花多少。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F3ED",
+  "theme_color": "#F6F3ED",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

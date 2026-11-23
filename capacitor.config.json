@@ -1,0 +1,9 @@
+{
+  "appId": "com.qianqu.app",
+  "appName": "钱都去哪儿了",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#F6F3ED"
+  }
+}
