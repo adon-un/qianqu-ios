@@ -1,0 +1,66 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 显示 Xcode 版本
+        run: xcodebuild -version
+
+      - name: 安装依赖
+        run: npm install
+
+      - name: 准备网页资源
+        run: |
+          mkdir -p www
+          cp index.html manifest.json sw.js icon-180.png icon-192.png icon-512.png www/
+
+      - name: 生成 iOS 工程
+        run: npx cap add ios
+
+      - name: 同步网页到原生壳
+        run: npx cap sync ios
+
+      - name: 安装 Pods
+        run: |
+          cd ios/App
+          pod install --repo-update
+
+      - name: 编译（不签名）
+        run: |
+          cd ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build
+
+      - name: 打包成 ipa
+        run: |
+          mkdir -p Payload
+          cp -R ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr qianqu-unsigned.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qianqu-ipa
+          path: qianqu-unsigned.ipa
+          retention-days: 7
