@@ -1936,6 +1936,7 @@ html.noanim *{animation:none!important;transition:none!important}
       ctx.drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, S, S);
       form._orig = c;
       form._canvas = c;
+      form._stroke = null;
       URL.revokeObjectURL(url);
       doCut();                       // 拍完自动抠
     };
@@ -1971,7 +1972,8 @@ html.noanim *{animation:none!important;transition:none!important}
     ctx.drawImage(src, 0, 0);
 
     function finish(native) {
-      var st = sticker(c);
+      if (!form._stroke) form._stroke = pickStroke(c);
+      var st = sticker(c, form._stroke);
       form._cut = c;
       form._canvas = st;
       form.img = st.toDataURL('image/png');
@@ -2019,8 +2021,34 @@ html.noanim *{animation:none!important;transition:none!important}
     updatePhotoUI();
   }
 
-  // 透明图外面套一圈白边 + 投影，做成贴纸
-  function sticker(src) {
+  // 描边色卡：彼此拉得开，跟常见物体颜色都能形成对比
+  var STROKE_PALETTE = ['#F26D5B', '#F5A623', '#7BC96F', '#4C9AFF', '#A78BFA', '#F472B6', '#111111', '#F7E96B'];
+
+  function hexToRgb(h) {
+    h = h.replace('#', '');
+    return { r: parseInt(h.substr(0, 2), 16), g: parseInt(h.substr(2, 2), 16), b: parseInt(h.substr(4, 2), 16) };
+  }
+
+  // 算主体平均色，再从色卡里挑对比最强的三个随机一个
+  function pickStroke(src) {
+    var d = src.getContext('2d').getImageData(0, 0, src.width, src.height).data;
+    var r = 0, g = 0, b = 0, n = 0;
+    for (var i = 0; i < d.length; i += 4) {
+      if (d[i + 3] > 200) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+    }
+    if (!n) return STROKE_PALETTE[0];
+    r /= n; g /= n; b /= n;
+    var scored = STROKE_PALETTE.map(function (hex) {
+      var c = hexToRgb(hex);
+      var dr = c.r - r, dg = c.g - g, db = c.b - b;
+      return { hex: hex, dist: Math.sqrt(dr * dr + dg * dg + db * db) };
+    }).sort(function (a, b2) { return b2.dist - a.dist; });
+    var top = scored.slice(0, 3);
+    return top[Math.floor(Math.random() * top.length)].hex;
+  }
+
+  // 透明图外面套一圈彩色描边 + 投影，做成贴纸
+  function sticker(src, strokeColor) {
     var pad = 12, W = src.width + pad * 2;
     var out = document.createElement('canvas');
     out.width = out.height = W;
@@ -2029,19 +2057,19 @@ html.noanim *{animation:none!important;transition:none!important}
     var m = document.createElement('canvas');
     m.width = m.height = W;
     var mx = m.getContext('2d');
-    mx.filter = 'blur(3px)';
+    mx.filter = 'blur(4px)';
     mx.drawImage(src, pad, pad);
     mx.filter = 'none';
     var d = mx.getImageData(0, 0, W, W);
     var px = d.data;
-    for (var i = 3; i < px.length; i += 4) px[i] = px[i] > 46 ? 255 : 0;
+    for (var i = 3; i < px.length; i += 4) px[i] = px[i] > 40 ? 255 : 0;
     mx.putImageData(d, 0, 0);
     mx.globalCompositeOperation = 'source-in';
-    mx.fillStyle = '#FFFFFF';
+    mx.fillStyle = strokeColor || '#FFFFFF';
     mx.fillRect(0, 0, W, W);
 
     c.save();
-    c.shadowColor = 'rgba(0,0,0,.20)';
+    c.shadowColor = 'rgba(0,0,0,.18)';
     c.shadowBlur = 5;
     c.shadowOffsetY = 2;
     c.drawImage(m, 0, 0);
@@ -2115,7 +2143,7 @@ html.noanim *{animation:none!important;transition:none!important}
     var hadCut = !!form._cut;
     form._cut = hadCut ? brushImg : null;
     form._canvas = brushImg;
-    form.img = hadCut ? sticker(brushImg).toDataURL('image/png') : brushImg.toDataURL('image/png');
+    form.img = hadCut ? sticker(brushImg, form._stroke).toDataURL('image/png') : brushImg.toDataURL('image/png');
     form.cut = true;
     updatePhotoUI();
     $('#brush').classList.remove('open');
@@ -2298,7 +2326,7 @@ html.noanim *{animation:none!important;transition:none!important}
       else if (pk === 'cut') doCut();
       else if (pk === 'brush') openBrush();
       else if (pk === 'orig') useOriginal();
-      else if (pk === 'clear') { form.img = null; form.cut = false; form._canvas = null; form._orig = null; updatePhotoUI(); }
+      else if (pk === 'clear') { form.img = null; form.cut = false; form._canvas = null; form._orig = null; form._stroke = null; updatePhotoUI(); }
       return;
     }
 
