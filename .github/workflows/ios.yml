@@ -23,7 +23,7 @@ jobs:
         run: |
           mkdir -p plugins/subject-cutout/ios/Sources
           cp SubjectCutoutPlugin.swift plugins/subject-cutout/ios/Sources/
-                              python3 -c "import base64,pathlib;p=pathlib.Path('plugins/subject-cutout');(p/'package.json').write_bytes(base64.b64decode('ewogICJuYW1lIjogInN1YmplY3QtY3V0b3V0IiwKICAidmVyc2lvbiI6ICIxLjAuMCIsCiAgImZpbGVzIjogWyJpb3MiXSwKICAiY2FwYWNpdG9yIjogeyAiaW9zIjogeyAic3JjIjogImlvcyIgfSB9LAogICJwZWVyRGVwZW5kZW5jaWVzIjogeyAiQGNhcGFjaXRvci9jb3JlIjogIl43LjAuMCIgfQp9'));(p/'SubjectCutout.podspec').write_bytes(base64.b64decode('UG9kOjpTcGVjLm5ldyBkbyB8c3wKICBzLm5hbWUgICAgICAgICAgICAgPSAnU3ViamVjdEN1dG91dCcKICBzLnZlcnNpb24gICAgICAgICAgPSAnMS4wLjAnCiAgcy5zdW1tYXJ5ICAgICAgICAgID0gJ1Zpc2lvbiBzdWJqZWN0IGN1dG91dCBmb3IgQ2FwYWNpdG9yJwogIHMubGljZW5zZSAgICAgICAgICA9ICdNSVQnCiAgcy5ob21lcGFnZSAgICAgICAgID0gJ2h0dHBzOi8vZ2l0aHViLmNvbS9hZG9uLXVuL3FpYW5xdS1pb3MnCiAgcy5hdXRob3IgICAgICAgICAgID0gJ2Fkb24tdW4nCiAgcy5zb3VyY2UgICAgICAgICAgID0geyA6Z2l0ID0+ICdodHRwczovL2dpdGh1Yi5jb20vYWRvbi11bi9xaWFucXUtaW9zLmdpdCcsIDp0YWcgPT4gJzEuMC4wJyB9CiAgcy5zb3VyY2VfZmlsZXMgICAgID0gJ2lvcy8qKi8qLntzd2lmdCxoLG19JwogIHMuaW9zLmRlcGxveW1lbnRfdGFyZ2V0ID0gJzE0LjAnCiAgcy5kZXBlbmRlbmN5ICdDYXBhY2l0b3InCiAgcy5zd2lmdF92ZXJzaW9uID0gJzUuMScKZW5k'))"
+          python3 -c "import base64,pathlib;p=pathlib.Path('plugins/subject-cutout');(p/'package.json').write_bytes(base64.b64decode('ewogICJuYW1lIjogInN1YmplY3QtY3V0b3V0IiwKICAidmVyc2lvbiI6ICIxLjAuMCIsCiAgImZpbGVzIjogWyJpb3MiXSwKICAiY2FwYWNpdG9yIjogeyAiaW9zIjogeyAic3JjIjogImlvcyIgfSB9LAogICJwZWVyRGVwZW5kZW5jaWVzIjogeyAiQGNhcGFjaXRvci9jb3JlIjogIl43LjAuMCIgfQp9'));(p/'SubjectCutout.podspec').write_bytes(base64.b64decode('UG9kOjpTcGVjLm5ldyBkbyB8c3wKICBzLm5hbWUgICAgICAgICAgICAgPSAnU3ViamVjdEN1dG91dCcKICBzLnZlcnNpb24gICAgICAgICAgPSAnMS4wLjAnCiAgcy5zdW1tYXJ5ICAgICAgICAgID0gJ1Zpc2lvbiBzdWJqZWN0IGN1dG91dCBmb3IgQ2FwYWNpdG9yJwogIHMubGljZW5zZSAgICAgICAgICA9ICdNSVQnCiAgcy5ob21lcGFnZSAgICAgICAgID0gJ2h0dHBzOi8vZ2l0aHViLmNvbS9hZG9uLXVuL3FpYW5xdS1pb3MnCiAgcy5hdXRob3IgICAgICAgICAgID0gJ2Fkb24tdW4nCiAgcy5zb3VyY2UgICAgICAgICAgID0geyA6Z2l0ID0+ICdodHRwczovL2dpdGh1Yi5jb20vYWRvbi11bi9xaWFucXUtaW9zLmdpdCcsIDp0YWcgPT4gJzEuMC4wJyB9CiAgcy5zb3VyY2VfZmlsZXMgICAgID0gJ2lvcy8qKi8qLntzd2lmdCxoLG19JwogIHMuaW9zLmRlcGxveW1lbnRfdGFyZ2V0ID0gJzE0LjAnCiAgcy5kZXBlbmRlbmN5ICdDYXBhY2l0b3InCiAgcy5zd2lmdF92ZXJzaW9uID0gJzUuMScKZW5k'))"
           find plugins -type f
 
       - name: 安装依赖
@@ -36,6 +36,10 @@ jobs:
 
       - name: 生成 iOS 工程
         run: npx cap add ios
+
+      - name: 写入相机和相册权限说明
+        run: |
+          python3 -c "import plistlib;p='ios/App/App/Info.plist';d=plistlib.load(open(p,'rb'));d.update({'NSCameraUsageDescription':'拍摄物品照片，用于生成贴纸','NSPhotoLibraryUsageDescription':'从相册选择物品照片','NSPhotoLibraryAddUsageDescription':'保存图片到相册'});plistlib.dump(d,open(p,'wb'));print('已写入:', [k for k in d if 'Usage' in k])"
 
       - name: 同步网页到原生壳
         run: npx cap sync ios
@@ -86,13 +90,17 @@ jobs:
           cp -R ios/App/build/Build/Products/Release-iphoneos/App.app Payload/
           zip -qr qianqu-unsigned.ipa Payload
 
-      - name: 检查插件是否编进 App
+      - name: 检查插件和权限是否都进包
         run: |
           if [ -d "Payload/App.app/Frameworks/SubjectCutout.framework" ]; then
             echo "✅ 原生抠图插件已打进 App"
           else
-            ls Payload/App.app/Frameworks/ || true
             echo "::warning::没找到 SubjectCutout.framework"
+          fi
+          if grep -q "NSCameraUsageDescription" "Payload/App.app/Info.plist"; then
+            echo "✅ 相机权限说明已写入"
+          else
+            echo "::warning::Info.plist 里没有相机权限说明"
           fi
 
       - uses: actions/upload-artifact@v4
